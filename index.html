@@ -164,7 +164,7 @@
     }
 
     function startGame() {
-      timer = 30;
+      timer = 15;
       score = 0;
       scoreEl.textContent = "正解数: 0";
       showScreen("game");
@@ -210,7 +210,7 @@
         feedback.textContent = "正解！";
         feedback.className = "correct";
         score++;
-        timer += 30;
+        timer += 15;
         scoreEl.textContent = `正解数: ${score}`;
         updateQuestion();
       } else {
