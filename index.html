@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width">
+  <title>ナンバープレートで10を作ろう！</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background-color: #f4f4f4;
+      margin: 0;
+    }
+    .screen {
+      padding: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    #question {
+      font-size: 2rem;
+      margin: 20px 0;
+    }
+    #input {
+      font-size: 1.5rem;
+      min-height: 2rem;
+      border: 1px solid #ccc;
+      margin: 10px;
+      padding: 5px;
+      background: #fff;
+    }
+    .buttons, .extra-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 10px 0;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 15px;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      border: none;
+      background-color: #3498db;
+      color: white;
+      transition: transform 0.1s ease;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:active {
+      transform: scale(0.95);
+    }
+    .info {
+      display: flex;
+      justify-content: space-around;
+      font-size: 1.2rem;
+      margin: 10px;
+    }
+    #timer {
+      color: red;
+      font-weight: bold;
+    }
+    #feedback {
+      font-size: 1.5rem;
+      margin-top: 10px;
+      transition: all 0.3s ease;
+    }
+    .correct {
+      color: green;
+      animation: pop 0.4s;
+    }
+    .wrong {
+      color: red;
+      animation: shake 0.3s;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-5px); }
+      100% { transform: translateX(0); }
+    }
+    @keyframes pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div id="home" class="screen">
+    <h1>ナンバープレートで10を作ろう！</h1>
+    <button id="startButton">ゲーム開始</button>
+  </div>
+
+  <div id="game" class="screen hidden">
+    <div class="info">
+      <div id="timer">30</div>
+      <div id="score">正解数: 0</div>
+    </div>
+    <div id="question"></div>
+    <div id="inputArea">
+      <input type="text" id="answerInput" placeholder="式を入力" />
+      <div class="buttons" id="keyButtons"></div>
+      <div class="extra-buttons">
+        <button id="delOne">1文字消す</button>
+        <button id="clearAll">全て消す</button>
+        <button id="submit">送信</button>
+      </div>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div id="gameOver" class="screen hidden">
+    <h2>ゲームオーバー！</h2>
+    <p id="finalScore"></p>
+    <p id="lastAnswer"></p>
+    <button id="returnHome">ホームに戻る</button>
+  </div>
+
+  <script>
+    const screens = {
+      home: document.getElementById("home"),
+      game: document.getElementById("game"),
+      gameOver: document.getElementById("gameOver")
+    };
+    const timerEl = document.getElementById("timer");
+    const scoreEl = document.getElementById("score");
+    const questionEl = document.getElementById("question");
+    const inputField = document.getElementById("answerInput");
+    const feedback = document.getElementById("feedback");
+    const finalScore = document.getElementById("finalScore");
+    const lastAnswer = document.getElementById("lastAnswer");
+
+    let currentNumbers = "";
+    let timer = 30;
+    let score = 0;
+    let interval;
+    let lastSolution = [];
+
+    function showScreen(name) {
+      for (let key in screens) {
+        screens[key].classList.add("hidden");
+      }
+      screens[name].classList.remove("hidden");
+    }
+
+    function generateNumbers() {
+      return String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    }
+
+    function updateQuestion() {
+      currentNumbers = generateNumbers();
+      lastSolution = findAllSolutions(currentNumbers);
+      if (lastSolution.length === 0) {
+        updateQuestion(); // スキップ
+        return;
+      }
+      questionEl.textContent = `数字: ${currentNumbers}`;
+      inputField.value = "";
+      feedback.textContent = "";
+    }
+
+    function startGame() {
+      timer = 30;
+      score = 0;
+      scoreEl.textContent = "正解数: 0";
+      showScreen("game");
+      updateQuestion();
+      interval = setInterval(() => {
+        timer--;
+        timerEl.textContent = timer;
+        if (timer <= 0) {
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function endGame() {
+      clearInterval(interval);
+      showScreen("gameOver");
+      finalScore.textContent = `正解数: ${score}`;
+      lastAnswer.textContent = `この問題の例: ${lastSolution[0] || "なし"}`;
+    }
+
+    function evaluateExpression(expr) {
+      try {
+        const val = Function(`return (${expr.replace(/×/g, "*").replace(/÷/g, "/")})`)();
+        return Math.abs(val - 10) < 1e-9;
+      } catch {
+        return false;
+      }
+    }
+
+    function validateDigits(expr, digits) {
+      const used = expr.replace(/[^0-9]/g, "").split("");
+      const original = digits.split("");
+      if (used.length !== 4) return false;
+      const count = (arr) => arr.reduce((a, c) => (a[c] = (a[c] || 0) + 1, a), {});
+      const u = count(used), o = count(original);
+      return Object.keys(o).every(k => u[k] === o[k]);
+    }
+
+    document.getElementById("submit").onclick = () => {
+      const input = inputField.value.trim();
+      
+      if (evaluateExpression(input) && validateDigits(input, currentNumbers)) {
+        feedback.textContent = "正解！";
+        feedback.className = "correct";
+        score++;
+        timer += 30;
+        scoreEl.textContent = `正解数: ${score}`;
+        updateQuestion();
+      } else {
+        feedback.textContent = "不正解";
+        feedback.className = "wrong";
+      }
+    };
+
+    document.getElementById("startButton").onclick = startGame;
+    document.getElementById("returnHome").onclick = () => showScreen("home");
+    document.getElementById("delOne").onclick = () => {
+      inputField.value = inputField.value.slice(0, -1);
+    };
+    document.getElementById("clearAll").onclick = () => {
+      inputField.value = "";
+    };
+    inputField.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("submit").click();
+    });
+
+    const keyButtons = document.getElementById("keyButtons");
+    "1234567890+-*/()".split("").forEach(c => {
+      const b = document.createElement("button");
+      b.textContent = c.replace("*", "×").replace("/", "÷");
+      b.onclick = () => inputField.value += c;
+      keyButtons.appendChild(b);
+    });
+
+    function findAllSolutions(digits) {
+      const results = [];
+      const nums = digits.split("");
+      const ops = ["+", "-", "*", "/"];
+      const permute = (arr) => {
+        if (arr.length === 1) return [arr];
+        let res = [];
+        arr.forEach((val, i) => {
+          const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+          permute(rest).forEach(p => res.push([val, ...p]));
+        });
+        return res;
+      };
+      const applyOps = (n) => {
+        for (let o1 of ops) {
+          for (let o2 of ops) {
+            for (let o3 of ops) {
+              const o = [o1, o2, o3];
+              const exprs = [
+                `${n[0]}${o[0]}${n[1]}${o[1]}${n[2]}${o[2]}${n[3]}`,
+                `(${n[0]}${o[0]}${n[1]})${o[1]}(${n[2]}${o[2]}${n[3]})`,
+                `((${n[0]}${o[0]}${n[1]})${o[1]}${n[2]})${o[2]}${n[3]}`,
+                `${n[0]}${o[0]}((${n[1]}${o[1]}${n[2]})${o[2]}${n[3]})`,
+                `${n[0]}${o[0]}(${n[1]}${o[1]}(${n[2]}${o[2]}${n[3]}))`,
+              ];
+              for (let expr of exprs) {
+                try {
+                  const val = Function(`return (${expr})`)();
+                  if (Math.abs(val - 10) < 1e-9) results.push(expr);
+                } catch {}
+              }
+            }
+          }
+        }
+      };
+      permute(nums).forEach(p => applyOps(p));
+      return [...new Set(results)];
+    }
+  </script>
+</body>
+</html>
